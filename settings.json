@@ -8,30 +8,29 @@
   "server": {
     "ip": "jashithmc.aternos.me",
     "port": 50833,
+    "version": "1.21.11"
   },
   "position": {
-    "enabled": true,
+    "enabled": false,
     "x": 0,
     "y": 100,
     "z": 0
   },
   "utils": {
     "auto-auth": {
-      "enabled": true,
-      "password": "Slobos"
+      "enabled": false,
+      "password": ""
     },
     "anti-afk": {
       "enabled": true,
       "sneak": true
     },
     "chat-messages": {
-      "enabled": true,
+      "enabled": false,
       "repeat": true,
       "repeat-delay": 500,
       "messages": [
-        "I'm a racist!",
-        "Jill Kews and niggas",
-        "I like cotton!"
+        "AFK bot online"
       ]
     },
     "chat-log": true,
@@ -39,7 +38,7 @@
     "auto-reconnect-delay": 2000,
     "max-reconnect-delay": 20000,
     "periodic-rejoin": {
-      "enabled": true,
+      "enabled": false,
       "min-interval": 20,
       "max-interval": 60
     }
@@ -47,12 +46,12 @@
   "movement": {
     "enabled": true,
     "circle-walk": {
-      "enabled": true,
+      "enabled": false,
       "radius": 4,
       "speed": 3000
     },
     "look-around": {
-      "enabled": true,
+      "enabled": false,
       "interval": 5000
     },
     "random-jump": {
@@ -61,10 +60,10 @@
     }
   },
   "modules": {
-    "avoidMobs": true,
-    "combat": true,
-    "beds": true,
-    "chat": true,
+    "avoidMobs": false,
+    "combat": false,
+    "beds": false,
+    "chat": false,
     "console-commands": true
   },
   "combat": {
@@ -76,8 +75,8 @@
     "place-night": true
   },
   "discord": {
-    "enabled": true,
-    "webhookUrl": "https://discord.com/api/webhooks/1472567640521183243/7DzSIaCSM_9-5DjzrlAuP9Tdj7Y3yAP6BHg3scKzhaRFdVk8ctWBlhOc7I8l5xC6Nqm3",
+    "enabled": false,
+    "webhookUrl": "",
     "events": {
       "connect": true,
       "disconnect": true,

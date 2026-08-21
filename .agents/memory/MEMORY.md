@@ -1,0 +1,1 @@
+- [Aternos protocol compatibility](aternos-protocol-compatibility.md) — newer Aternos server versions may need a pinned supported Mineflayer client bridged by ViaVersion.

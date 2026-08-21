@@ -5,6 +5,27 @@ const config = require('./settings.json');
 const express = require('express');
 const http = require('http');
 
+// Runtime overrides keep credentials and deployment-specific values out of git.
+config['bot-account'].username = process.env.MC_BOT_USERNAME || config['bot-account'].username;
+config['bot-account'].password = process.env.MC_BOT_PASSWORD || config['bot-account'].password;
+config['bot-account'].type = process.env.MC_AUTH_TYPE || config['bot-account'].type || 'offline';
+config.server.ip = process.env.MC_SERVER_HOST || config.server.ip;
+if (process.env.MC_SERVER_PORT) config.server.port = Number(process.env.MC_SERVER_PORT);
+// Mineflayer currently supports clients through 1.21.11. For newer Aternos
+// servers, ViaVersion can bridge this client version when installed server-side.
+config.server.version = process.env.MC_SERVER_VERSION || config.server.version || '1.21.11';
+config.utils['auto-auth'].password =
+  process.env.MC_AUTO_AUTH_PASSWORD || config.utils['auto-auth'].password;
+config.discord.webhookUrl = process.env.DISCORD_WEBHOOK_URL || '';
+config.discord.enabled = Boolean(config.discord.enabled && config.discord.webhookUrl);
+
+if (!config['bot-account'].username) {
+  throw new Error('Set MC_BOT_USERNAME before starting the bot.');
+}
+if (!config.server.ip || !Number.isInteger(config.server.port) || config.server.port < 1 || config.server.port > 65535) {
+  throw new Error('Set MC_SERVER_HOST and a valid MC_SERVER_PORT before starting the bot.');
+}
+
 // ============================================================
 // EXPRESS SERVER - Keep Render/Aternos alive
 // ============================================================
@@ -372,7 +393,7 @@ function createBot() {
       auth: config['bot-account'].type,
       host: config.server.ip,
       port: config.server.port,
-      version: config.server.version,
+      version: config.server.version || undefined,
       hideErrors: false,
       checkTimeoutInterval: 120000 // 2 minutes - detects dead connections without false-positive disconnects
     });
@@ -395,11 +416,14 @@ function createBot() {
       isReconnecting = false;
 
       console.log(`[Bot] [+] Successfully spawned on server!`);
-      if (config.discord && config.discord.events.connect) {
+      if (config.discord && config.discord.enabled && config.discord.events.connect) {
         sendDiscordWebhook(`[+] **Connected** to \`${config.server.ip}\``, 0x4ade80); // Green
       }
 
-      const mcData = require('minecraft-data')(config.server.version);
+      // Mineflayer knows the negotiated version after spawn. This also supports
+      // Aternos servers that update their version without editing settings.json.
+      const negotiatedVersion = config.server.version || bot.version;
+      const mcData = require('minecraft-data')(negotiatedVersion);
       const defaultMove = new Movements(bot, mcData);
       defaultMove.allowFreeMotion = false;
       defaultMove.canDig = false;
@@ -409,8 +433,10 @@ function createBot() {
       // Start all modules
       initializeModules(bot, mcData, defaultMove);
 
-      // Setup enhanced Leave/Rejoin logic
-      setupLeaveRejoin(bot, createBot);
+       // A scheduled leave is disabled by default because it interrupts uptime.
+       if (config.utils['periodic-rejoin'] && config.utils['periodic-rejoin'].enabled) {
+         setupLeaveRejoin(bot, createBot);
+       }
 
       setTimeout(() => {
         if (bot && botState.connected) {
@@ -448,7 +474,7 @@ function createBot() {
       botState.connected = false;
       clearAllIntervals();
 
-      if (config.discord && config.discord.events.disconnect && reason !== 'Periodic Rejoin') {
+      if (config.discord && config.discord.enabled && config.discord.events.disconnect && reason !== 'Periodic Rejoin') {
         sendDiscordWebhook(`[-] **Disconnected**: ${reason || 'Unknown'}`, 0xf87171); // Red
       }
 
@@ -464,7 +490,7 @@ function createBot() {
       botState.errors.push({ type: 'kicked', reason, time: Date.now() });
       clearAllIntervals();
 
-      if (config.discord && config.discord.events.disconnect) {
+      if (config.discord && config.discord.enabled && config.discord.events.disconnect) {
         sendDiscordWebhook(`[!] **Kicked**: ${reason}`, 0xff0000); // Bright Red
       }
 
@@ -898,7 +924,7 @@ console.log('='.repeat(50));
 console.log('  Minecraft AFK Bot v2.3 - Bug Fix Edition');
 console.log('='.repeat(50));
 console.log(`Server: ${config.server.ip}:${config.server.port}`);
-console.log(`Version: ${config.server.version}`);
+  console.log(`Version: ${config.server.version || 'auto-detect'}`);
 console.log(`Auto-Reconnect: ${config.utils['auto-reconnect'] ? 'Enabled' : 'Disabled'}`);
 console.log('='.repeat(50));
 
