@@ -8,7 +8,6 @@
   "server": {
     "ip": "jashithmc.aternos.me",
     "port": 50833,
-    "version": "26.2"
   },
   "position": {
     "enabled": true,
