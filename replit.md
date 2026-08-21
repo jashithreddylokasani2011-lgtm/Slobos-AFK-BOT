@@ -27,3 +27,16 @@ Optional values:
 - `DISCORD_WEBHOOK_URL` — optional connection notifications
 
 The bot does not start or wake an Aternos server. The server must already be online, and its address/port must match the configured values. Periodic leave/rejoin, chat spam, combat, and risky movement are disabled by default to favor a stable connection.
+
+## Railway deployment
+
+Railway can deploy this repository as a long-running Node.js service using the included `railway.toml`. Import the repository, add the environment variables under **Variables**, and deploy. Railway uses `npm start`, checks `/health`, and restarts the service after a failure.
+
+Recommended Railway variables:
+
+- `MC_BOT_USERNAME`
+- `MC_SERVER_HOST`
+- `MC_SERVER_PORT`
+- `MC_SERVER_VERSION` (use `1.21.11` when the Aternos server is newer and has ViaVersion)
+
+Only add `MC_BOT_PASSWORD`, `MC_AUTO_AUTH_PASSWORD`, or `DISCORD_WEBHOOK_URL` when those features are actually needed. Keep them in Railway Variables, never in committed files.
