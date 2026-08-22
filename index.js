@@ -1,9 +1,20 @@
 const mineflayer = require('mineflayer');
-const { Movements, pathfinder, goals } = require('mineflayer-pathfinder');
-const { GoalBlock } = goals;
 const config = require('./settings.json');
 const express = require('express');
 const http = require('http');
+
+// Load the pathfinder package only when a movement feature needs it. A basic
+// AFK client does not need pathfinding or its extra movement data in memory.
+let Movements;
+let pathfinder;
+let GoalBlock;
+function loadPathfindingDependencies() {
+  if (pathfinder) return;
+  const pathfinderModule = require('mineflayer-pathfinder');
+  Movements = pathfinderModule.Movements;
+  pathfinder = pathfinderModule.pathfinder;
+  GoalBlock = pathfinderModule.goals.GoalBlock;
+}
 
 // Runtime overrides keep credentials and deployment-specific values out of git.
 config['bot-account'].username = process.env.MC_BOT_USERNAME || config['bot-account'].username;
@@ -341,6 +352,13 @@ let activeIntervals = [];
 let reconnectTimeout = null;
 let isReconnecting = false;
 
+function recordBotError(error) {
+  botState.errors.push(error);
+  // Keep diagnostics useful without allowing repeated network errors to grow
+  // the process heap forever.
+  if (botState.errors.length > 50) botState.errors.splice(0, botState.errors.length - 50);
+}
+
 function clearAllIntervals() {
   console.log(`[Cleanup] Clearing ${activeIntervals.length} intervals`);
   activeIntervals.forEach(id => clearInterval(id));
@@ -400,6 +418,7 @@ function createBot() {
 
     const needsPathfinding = config.position.enabled || config.movement['circle-walk'].enabled;
     if (needsPathfinding) {
+      loadPathfindingDependencies();
       bot.loadPlugin(pathfinder);
     }
 
@@ -425,15 +444,16 @@ function createBot() {
 
       // Mineflayer knows the negotiated version after spawn. This also supports
       // Aternos servers that update their version without editing settings.json.
-      const needsMovementData =
-        config.position.enabled ||
-        config.movement['circle-walk'].enabled ||
-        config.modules.combat;
+      const needsMovement =
+        config.position.enabled || config.movement['circle-walk'].enabled;
+      const needsMovementData = needsMovement || config.modules.combat;
       const negotiatedVersion = config.server.version || bot.version;
       const mcData = needsMovementData
         ? require('minecraft-data')(negotiatedVersion)
         : null;
-      const defaultMove = needsMovementData ? new Movements(bot, mcData) : null;
+      const defaultMove = needsMovement
+        ? (loadPathfindingDependencies(), new Movements(bot, mcData))
+        : null;
       if (defaultMove) {
         defaultMove.allowFreeMotion = false;
         defaultMove.canDig = false;
@@ -444,10 +464,10 @@ function createBot() {
       // Start all modules
       initializeModules(bot, mcData, defaultMove);
 
-       // A scheduled leave is disabled by default because it interrupts uptime.
-       if (config.utils['periodic-rejoin'] && config.utils['periodic-rejoin'].enabled) {
-         setupLeaveRejoin(bot, createBot);
-       }
+      // A scheduled leave is disabled by default because it interrupts uptime.
+      if (config.utils['periodic-rejoin'] && config.utils['periodic-rejoin'].enabled) {
+        setupLeaveRejoin(bot, createBot);
+      }
 
       setTimeout(() => {
         if (bot && botState.connected) {
@@ -498,7 +518,7 @@ function createBot() {
       const wasSpawned = botState.connected;
       console.log(`[Bot] Kicked: ${reason}`);
       botState.connected = false;
-      botState.errors.push({ type: 'kicked', reason, time: Date.now() });
+      recordBotError({ type: 'kicked', reason, time: Date.now() });
       clearAllIntervals();
 
       if (config.discord && config.discord.enabled && config.discord.events.disconnect) {
@@ -512,7 +532,7 @@ function createBot() {
 
     bot.on('error', (err) => {
       console.log(`[Bot] Error: ${err.message}`);
-      botState.errors.push({ type: 'error', message: err.message, time: Date.now() });
+      recordBotError({ type: 'error', message: err.message, time: Date.now() });
       // Don't immediately reconnect on error - let 'end' event handle it
     });
 
@@ -893,7 +913,7 @@ function sendDiscordWebhook(content, color = 0x0099ff) {
 process.on('uncaughtException', (err) => {
   console.log(`[FATAL] Uncaught Exception: ${err.message}`);
   // console.log(err.stack); // Optional: keep logs cleaner
-  botState.errors.push({ type: 'uncaught', message: err.message, time: Date.now() });
+  recordBotError({ type: 'uncaught', message: err.message, time: Date.now() });
 
   // CRITICAL: DO NOT EXIT.
   // The user wants the server to stay up "all the time no matter what".
@@ -909,7 +929,7 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.log(`[FATAL] Unhandled Rejection: ${reason}`);
-  botState.errors.push({ type: 'rejection', message: String(reason), time: Date.now() });
+  recordBotError({ type: 'rejection', message: String(reason), time: Date.now() });
   // Do not exit.
 });
 
