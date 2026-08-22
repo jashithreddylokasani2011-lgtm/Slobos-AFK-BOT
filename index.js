@@ -247,7 +247,7 @@ app.get('/tutorial', (req, res) => {
             <li>Go to <strong>Aternos</strong>.</li>
             <li>Install <strong>Paper/Bukkit</strong> software.</li>
             <li>Enable <strong>Cracked</strong> mode (Green Switch).</li>
-            <li>Install Plugins: <code>ViaVersion</code>, <code>ViaBackwards</code>, <code>ViaRewind</code>.</li>
+            <li>Install <code>ViaVersion</code> and <code>ViaBackwards</code> for this bot's 1.21.11 client. <code>ViaRewind</code> is not needed.</li>
           </ol>
         </div>
 
@@ -398,7 +398,10 @@ function createBot() {
       checkTimeoutInterval: 120000 // 2 minutes - detects dead connections without false-positive disconnects
     });
 
-    bot.loadPlugin(pathfinder);
+    const needsPathfinding = config.position.enabled || config.movement['circle-walk'].enabled;
+    if (needsPathfinding) {
+      bot.loadPlugin(pathfinder);
+    }
 
     // Connection timeout - if no spawn in 60s, reconnect
     const connectionTimeout = setTimeout(() => {
@@ -422,13 +425,21 @@ function createBot() {
 
       // Mineflayer knows the negotiated version after spawn. This also supports
       // Aternos servers that update their version without editing settings.json.
+      const needsMovementData =
+        config.position.enabled ||
+        config.movement['circle-walk'].enabled ||
+        config.modules.combat;
       const negotiatedVersion = config.server.version || bot.version;
-      const mcData = require('minecraft-data')(negotiatedVersion);
-      const defaultMove = new Movements(bot, mcData);
-      defaultMove.allowFreeMotion = false;
-      defaultMove.canDig = false;
-      defaultMove.liquidCost = 1000;
-      defaultMove.fallDamageCost = 1000;
+      const mcData = needsMovementData
+        ? require('minecraft-data')(negotiatedVersion)
+        : null;
+      const defaultMove = needsMovementData ? new Movements(bot, mcData) : null;
+      if (defaultMove) {
+        defaultMove.allowFreeMotion = false;
+        defaultMove.canDig = false;
+        defaultMove.liquidCost = 1000;
+        defaultMove.fallDamageCost = 1000;
+      }
 
       // Start all modules
       initializeModules(bot, mcData, defaultMove);
@@ -580,10 +591,10 @@ function initializeModules(bot, mcData, defaultMove) {
         bot.setControlState('jump', true);
         setTimeout(() => {
           if (bot) bot.setControlState('jump', false);
-        }, 100);
+        }, config.utils['anti-afk']['jump-duration'] || 100);
         botState.lastActivity = Date.now();
       }
-    }, 3000); // Jump every 30 seconds
+    }, config.utils['anti-afk'].interval || 30000);
 
     if (config.utils['anti-afk'].sneak) {
       bot.setControlState('sneak', true);

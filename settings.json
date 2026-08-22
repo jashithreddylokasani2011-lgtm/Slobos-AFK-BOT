@@ -23,7 +23,9 @@
     },
     "anti-afk": {
       "enabled": true,
-      "sneak": true
+      "sneak": true,
+      "interval": 30000,
+      "jump-duration": 100
     },
     "chat-messages": {
       "enabled": false,
@@ -55,7 +57,7 @@
       "interval": 5000
     },
     "random-jump": {
-      "enabled": true,
+      "enabled": false,
       "interval": 10000
     }
   },
